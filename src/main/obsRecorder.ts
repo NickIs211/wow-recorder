@@ -1,8 +1,6 @@
 const path = require('path');
 const { Subject } = require('rxjs');
 const { first } = require('rxjs/operators');
-const { byOS, OS } = require('./operatingSystems');
-
 const osn = require("obs-studio-node");
 const { v4: uuid } = require('uuid');
 
@@ -30,6 +28,8 @@ function initialize(baseStoragePath: string) {
 
 function initOBS() {
   console.debug('Initializing OBS...');
+  console.log(path.join(__dirname, "../../obs-studio-node", "obs64.exe"));
+  // osn.NodeObs.IPC.setServerPath(path.join(__dirname, "../../release/app/node_modules/obs-studio-node", "obs64.exe"));
   osn.NodeObs.IPC.host(`obs-studio-node-example-${uuid()}`);
   osn.NodeObs.SetWorkingDirectory(fixPathWhenPackaged(path.join(__dirname,'../../', 'node_modules', 'obs-studio-node')));
 
@@ -89,7 +89,7 @@ function displayInfo() {
 }
 
 function setupScene() {
-  const dummySource = osn.InputFactory.create("game_capture", "league game capture");
+  const dummySource = osn.InputFactory.create("game_capture", "wow game capture");
   const dummyVideoSources = dummySource.properties.get("window").details.items;
   console.log(dummyVideoSources);
   const realWowWindow = dummyVideoSources.find((window: any) => window.name === "[Wow.exe]: World of Warcraft");
@@ -98,6 +98,7 @@ function setupScene() {
     capture_mode: "any_fullscreen",
     window: realWowWindow.value
   });
+  console.log("vs2:");
   console.log(videoSource2);
 
   
@@ -134,24 +135,24 @@ function getAudioDevices(type, subtype) {
   return devices;
 };
 
-function setupSources(scene) {
+function setupSources(scene: any) {
   osn.Global.setOutputSource(1, scene);
 
   setSetting('Output', 'Track1Name', 'Mixed: all sources');
   let currentTrack = 2;
 
-  getAudioDevices(byOS({ [OS.Windows]: 'wasapi_output_capture', [OS.Mac]: 'coreaudio_output_capture' }), 'desktop-audio').forEach(metadata => {
+  getAudioDevices('wasapi_output_capture', 'desktop-audio').forEach(metadata => {
     if (metadata.device_id === 'default') return;
-    const source = osn.InputFactory.create(byOS({ [OS.Windows]: 'wasapi_output_capture', [OS.Mac]: 'coreaudio_output_capture' }), 'desktop-audio', { device_id: metadata.device_id });
+    const source = osn.InputFactory.create('wasapi_output_capture', 'desktop-audio', { device_id: metadata.device_id });
     setSetting('Output', `Track${currentTrack}Name`, metadata.name);
     source.audioMixers = 1 | (1 << currentTrack-1); // Bit mask to output to only tracks 1 and current track
     osn.Global.setOutputSource(currentTrack, source);
     currentTrack++;
   });
 
-  getAudioDevices(byOS({ [OS.Windows]: 'wasapi_input_capture', [OS.Mac]: 'coreaudio_input_capture' }), 'mic-audio').forEach(metadata => {
+  getAudioDevices('wasapi_input_capture', 'mic-audio').forEach(metadata => {
     if (metadata.device_id === 'default') return;
-    const source = osn.InputFactory.create(byOS({ [OS.Windows]: 'wasapi_input_capture', [OS.Mac]: 'coreaudio_input_capture' }), 'mic-audio', { device_id: metadata.device_id });
+    const source = osn.InputFactory.create('wasapi_input_capture', 'mic-audio', { device_id: metadata.device_id });
     setSetting('Output', `Track${currentTrack}Name`, metadata.name);
     source.audioMixers = 1 | (1 << currentTrack-1); // Bit mask to output to only tracks 1 and current track
     osn.Global.setOutputSource(currentTrack, source);
@@ -161,17 +162,16 @@ function setupSources(scene) {
   setSetting('Output', 'RecTracks', parseInt('1'.repeat(currentTrack-1), 2)); // Bit mask of used tracks: 1111 to use first four (from available six)
 }
 
-const displayId = 'display1';
 async function start() {
-  if (!obsInitialized) initialize();
-
-  let signalInfo;
+  if (!obsInitialized) {
+    throw Error("OBS not initialized");
+  }
 
   console.debug('Starting recording...');
   osn.NodeObs.OBS_service_startRecording();
 
   console.debug('Started?');
-  signalInfo = await getNextSignalInfo();
+  let signalInfo: any = await getNextSignalInfo();
 
   if (signalInfo.signal === 'Stop') {
     throw Error(signalInfo.error);
@@ -183,13 +183,11 @@ async function start() {
 }
 
 async function stop() {
-  let signalInfo;
-
   console.debug('Stopping recording...');
   osn.NodeObs.OBS_service_stopRecording();
   console.debug('Stopped?');
 
-  signalInfo = await getNextSignalInfo();
+  let signalInfo: any = await getNextSignalInfo();
 
   console.debug('On stop signalInfo.type:', signalInfo.type, '(expected: "recording")');
   console.debug('On stop signalInfo.signal:', signalInfo.signal, '(expected: "stopping")');
@@ -223,14 +221,14 @@ function shutdown() {
   return true;
 }
 
-function setSetting(category, parameter, value) {
+function setSetting(category: any, parameter: any, value: any) {
   let oldValue;
 
   // Getting settings container
   const settings = osn.NodeObs.OBS_settings_getSettings(category).data;
 
-  settings.forEach(subCategory => {
-    subCategory.parameters.forEach(param => {
+  settings.forEach((subCategory: any) => {
+    subCategory.parameters.forEach((param: any) => {
       if (param.name === parameter) {        
         oldValue = param.currentValue;
         param.currentValue = value;
@@ -244,33 +242,36 @@ function setSetting(category, parameter, value) {
   }
 }
 
-function getAvailableValues(category, subcategory, parameter) {
+function getAvailableValues(category: any, subcategory: any, parameter: any) {
   const categorySettings = osn.NodeObs.OBS_settings_getSettings(category).data;
+
   if (!categorySettings) {
     console.warn(`There is no category ${category} in OBS settings`);
     return [];
   }
 
-  const subcategorySettings = categorySettings.find(sub => sub.nameSubCategory === subcategory);
+  const subcategorySettings = categorySettings.find((sub: any) => sub.nameSubCategory === subcategory);
+
   if (!subcategorySettings) {
     console.warn(`There is no subcategory ${subcategory} for OBS settings category ${category}`);
     return [];
   }
 
-  const parameterSettings = subcategorySettings.parameters.find(param => param.name === parameter);
+  const parameterSettings = subcategorySettings.parameters.find((param: any) => param.name === parameter);
+  
   if (!parameterSettings) {
     console.warn(`There is no parameter ${parameter} for OBS settings category ${category}.${subcategory}`);
     return [];
   }
 
-  return parameterSettings.values.map( value => Object.values(value)[0]);
+  return parameterSettings.values.map((value: any) => Object.values(value)[0]);
 }
 
 const signals = new Subject();
 
 function getNextSignalInfo() {
   return new Promise((resolve, reject) => {
-    signals.pipe(first()).subscribe(signalInfo => resolve(signalInfo));
+    signals.pipe(first()).subscribe((signalInfo: any) => resolve(signalInfo));
     setTimeout(() => reject('Output signal timeout'), 30000);
   });
 }
@@ -279,6 +280,5 @@ export {
   initialize,
   start,
   stop,
-  shutdown,
-  configureOutputPath
+  shutdown
 }

@@ -31,7 +31,7 @@ f.write(COMBATANT2)
 f.write(COMBATANT3)
 f.write(COMBATANT4)
 f.close()
-time.sleep(length)
+time.sleep(2)
 
 f = open(f"{path}/{logName}", "a")
 f.write(SPELL_AURA_APPLIED)
