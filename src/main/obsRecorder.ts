@@ -89,16 +89,26 @@ function displayInfo() {
 }
 
 function setupScene() {
-  const videoSource = osn.InputFactory.create(byOS({ [OS.Windows]: 'monitor_capture', [OS.Mac]: 'display_capture' }), 'desktop-video');
+  const dummySource = osn.InputFactory.create("game_capture", "league game capture");
+  const dummyVideoSources = dummySource.properties.get("window").details.items;
+  console.log(dummyVideoSources);
+  const realWowWindow = dummyVideoSources.find((window: any) => window.name === "[Wow.exe]: World of Warcraft");
+  console.log(realWowWindow);
+  const videoSource2 = osn.InputFactory.create("game_capture", "wow game capture", {
+    capture_mode: "any_fullscreen",
+    window: realWowWindow.value
+  });
+  console.log(videoSource2);
+
   
   const { physicalWidth, physicalHeight } = displayInfo();
 
   // Update source settings:
-  let settings = videoSource.settings;
+  let settings = videoSource2.settings;
   settings['width'] = physicalWidth;
   settings['height'] = physicalHeight;
-  videoSource.update(settings);
-  videoSource.save();
+  videoSource2.update(settings);
+  videoSource2.save();
 
   // Set output video size to monitor size.
   const outputWidth = physicalWidth;
@@ -109,7 +119,7 @@ function setupScene() {
 
   // A scene is necessary here to properly scale captured screen size to output video size
   const scene = osn.SceneFactory.create('test-scene');
-  const sceneItem = scene.add(videoSource);
+  const sceneItem = scene.add(videoSource2);
   sceneItem.scale = { x: 1.0/ videoScaleFactor, y: 1.0 / videoScaleFactor };
 
   return scene;
