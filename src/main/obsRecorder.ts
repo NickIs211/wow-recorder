@@ -89,12 +89,15 @@ function displayInfo() {
 }
 
 function setupScene() {
-  const dummySource = osn.InputFactory.create('window_capture', 'desktop-video');
+  const dummySource = osn.InputFactory.create('game_capture', 'desktop-video');
   const dummyVideoSources = dummySource.properties.get("window").details.items;
   console.log(dummyVideoSources);
   const realWowWindow = dummyVideoSources.find((window: any) => window.name === "[Wow.exe]: World of Warcraft");
   console.log(realWowWindow);
-  const videoSource2 = osn.InputFactory.create('window_capture', 'wow-capture');
+  const videoSource2 = osn.InputFactory.create('game_capture', 'wow-capture', {
+    capture_mode: "any_fullscreen",
+    window: realWowWindow.value
+  });
   
   
   const { physicalWidth, physicalHeight } = displayInfo();
@@ -102,9 +105,9 @@ function setupScene() {
   // Update source settings:
   let settings = videoSource2.settings;
   
-  settings['width'] = physicalWidth;
-  settings['height'] = physicalHeight;
-  settings['window'] = "Spotify Premium:Chrome_WidgetWin_0:Spotify.exe";
+  // settings['width'] = physicalWidth;
+  // settings['height'] = physicalHeight;
+  // settings['window'] = "Spotify Premium:Chrome_WidgetWin_0:Spotify.exe";
   // settings['method'] = 'Automatic';
   // settings['fps'] = 60;
   videoSource2.update(settings);
